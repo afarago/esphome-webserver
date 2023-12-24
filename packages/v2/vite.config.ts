@@ -6,7 +6,6 @@ import { nodeResolve } from "@rollup/plugin-node-resolve";
 import loadVersion from "vite-plugin-package-version";
 import { viteSingleFile } from "vite-plugin-singlefile";
 import { minifyHtml as ViteMinifyHtml } from "vite-plugin-html";
-import copy from "rollup-plugin-copy";
 import stripBanner from "rollup-plugin-strip-banner";
 import replace from "@rollup/plugin-replace";
 
@@ -45,29 +44,21 @@ export default defineConfig({
         additionalFiles: [],
         customCompression: (content) =>
           brotliCompressSync(Buffer.from(content)),
-        fileName: ".br",
+        fileName: ".gz",
       }),
       enforce: "post",
       apply: "build",
     },
-    {
-      ...gzipPlugin({ filter: /\.(js|css|html|svg)$/ }),
-      enforce: "post",
-      apply: "build",
-    },
-    {
-      ...copy({
-        targets: [{ src: "v1/*", dest: "_static/v1" }],
-        verbose: true,
-      }),
-      enforce: "pre",
-      apply: "build",
-    },
+    // {
+    //   ...gzipPlugin({ filter: /\.(js|css|html|svg)$/ }),
+    //   enforce: "post",
+    //   apply: "build",
+    // }
   ],
   build: {
     brotliSize: false,
     // cssCodeSplit: true,
-    outDir: "_static/v2",
+    outDir: "../_static/v2",
     polyfillModulePreload: false,
     rollupOptions: {
       output: {
