@@ -9,9 +9,7 @@
     "deploy": "bash -c '../../scripts/make_header.sh ../../_static/v2 server_index.h web_server INDEX_GZ'"
   },
   "dependencies": {
-    "chart.js": "^4.4.1",
     "http-proxy-middleware": "^2.0.1",
-    "iconify-icon": "^1.0.8",
     "lit": "^2.0.2"
   },
   "devDependencies": {

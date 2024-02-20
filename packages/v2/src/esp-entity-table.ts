@@ -1,12 +1,7 @@
-import { html, css, LitElement, TemplateResult, nothing } from "lit";
-import { customElement, state, property } from "lit/decorators.js";
+import { html, css, LitElement, TemplateResult } from "lit";
+import { customElement, state } from "lit/decorators.js";
 import cssReset from "./css/reset";
 import cssButton from "./css/button";
-import cssInput from "./css/input";
-import cssEntityTable from "./css/esp-entity-table";
-import cssTab from "./css/tab";
-import "./esp-entity-chart";
-import "iconify-icon";
 
 interface entityConfig {
   unique_id: string;
@@ -16,14 +11,11 @@ interface entityConfig {
   detail: string;
   value: string;
   name: string;
-  entity_category: number;
   when: string;
   icon?: string;
   option?: string[];
   assumed_state?: boolean;
   brightness?: number;
-  color_mode?: string;
-  color: object;
   target_temperature?: number;
   target_temperature_low?: number;
   target_temperature_high?: number;
@@ -44,18 +36,14 @@ interface entityConfig {
   effects?: string[];
   effect?: string;
   has_action?: boolean;
-  value_numeric_history: number[];
-  uom?: string;
-  is_disabled_by_default?: boolean;
 }
-
-export const stateOn = "ON";
-export const stateOff = "OFF";
 
 export function getBasePath() {
   let str = window.location.pathname;
   return str.endsWith("/") ? str.slice(0, -1) : str;
 }
+
+let basePath = getBasePath();
 
 interface RestAction {
   restAction(entity?: entityConfig, action?: string): void;
@@ -65,15 +53,8 @@ interface RestAction {
 export class EntityTable extends LitElement implements RestAction {
   @state() entities: entityConfig[] = [];
   @state() has_controls: boolean = false;
-  @state() show_all: boolean = false;
 
   private _actionRenderer = new ActionRenderer();
-  private _basePath = getBasePath();
-  private static ENTITY_CATEGORIES = [
-    "Sensor and Control",
-    "Configuration",
-    "Diagnostic",
-  ];
 
   connectedCallback() {
     super.connectedCallback();
@@ -89,31 +70,15 @@ export class EntityTable extends LitElement implements RestAction {
           domain: parts[0],
           unique_id: data.id,
           id: parts.slice(1).join("-"),
-          entity_category: data.entity_category,
-          value_numeric_history: [data.value],
         } as entityConfig;
         entity.has_action = this.hasAction(entity);
         if (entity.has_action) {
           this.has_controls = true;
         }
         this.entities.push(entity);
-        this.entities.sort((a, b) =>
-          a.entity_category < b.entity_category
-            ? -1
-            : a.entity_category == b.entity_category
-            ? a.name < b.name
-              ? -1
-              : 1
-            : 1
-        );
+        this.entities.sort((a, b) => (a.name < b.name ? -1 : 1));
         this.requestUpdate();
       } else {
-        if (typeof data.value === "number") {
-          let history = [...this.entities[idx].value_numeric_history];
-          history.push(data.value);
-          this.entities[idx].value_numeric_history = history.splice(-50);
-        }
-
         delete data.id;
         delete data.domain;
         delete data.unique_id;
@@ -136,7 +101,7 @@ export class EntityTable extends LitElement implements RestAction {
   }
 
   restAction(entity: entityConfig, action: string) {
-    fetch(`${this._basePath}/${entity.domain}/${entity.id}/${action}`, {
+    fetch(`${basePath}/${entity.domain}/${entity.id}/${action}`, {
       method: "POST",
       body: "true",
     }).then((r) => {
@@ -144,110 +109,83 @@ export class EntityTable extends LitElement implements RestAction {
     });
   }
 
-  renderShowAll() {
-    if (
-      !this.show_all &&
-      this.entities.find((elem) => elem.is_disabled_by_default)
-    ) {
-      return html`<div class="singlebutton-row">
-        <button
-          class="abutton"
-          @click="${(e: Event) => (this.show_all = true)}"
-        >
-          Show All
-        </button>
-      </div>`;
-    }
-  }
-
   render() {
-    function groupBy(xs: Array<any>, key: string): Map<string, Array<any>> {
-      return xs.reduce(function (rv, x) {
-        (
-          rv.get(x[key]) ||
-          (() => {
-            let tmp: Array<string> = [];
-            rv.set(x[key], tmp);
-            return tmp;
-          })()
-        ).push(x);
-        return rv;
-      }, new Map<string, Array<any>>());
-    }
-
-    const entities = this.show_all
-      ? this.entities
-      : this.entities.filter((elem) => !elem.is_disabled_by_default);
-    const grouped = groupBy(entities, "entity_category");
-    const elems = Array.from(grouped, ([name, value]) => ({ name, value }));
     return html`
-      <div @click="${this._handleClick}">
-        ${elems.map(
-          (group) => html`
-            <div class="tab-header">
-              ${EntityTable.ENTITY_CATEGORIES[parseInt(group.name)]}
-            </div>
-            <div class="tab-container">
-              ${group.value.map(
-                (component, idx) => html`
-                  <div
-                    class="entity-row"
-                    .domain="${component.domain}"
-                    @click="${this._handleEntityRowClick}"
-                  >
-                    <div>
-                      ${component.icon
-                        ? html`<iconify-icon
-                            icon="${component.icon}"
-                            height="24px"
-                          ></iconify-icon>`
-                        : nothing}
-                    </div>
-                    <div>${component.name}</div>
-                    <div>
-                      ${this.has_controls && component.has_action
-                        ? this.control(component)
-                        : html`<div>${component.state}</div>`}
-                    </div>
-                    ${component.domain === "sensor"
-                      ? html`<esp-entity-chart
-                          .chartdata="${component.value_numeric_history}"
-                        ></esp-entity-chart>`
-                      : nothing}
-                  </div>
-                `
-              )}
-            </div>
-          `
-        )}
-        ${this.renderShowAll()}
-      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>State</th>
+            ${this.has_controls ? html`<th>Actions</th>` : html``}
+          </tr>
+        </thead>
+        <tbody>
+          ${this.entities.map(
+            (component) => html`
+              <tr>
+                <td>${component.name}</td>
+                <td>${component.state}</td>
+                ${this.has_controls
+                  ? html`<td>
+                      ${component.has_action ? this.control(component) : html``}
+                    </td>`
+                  : html``}
+              </tr>
+            `
+          )}
+        </tbody>
+      </table>
     `;
   }
 
   static get styles() {
-    return [cssReset, cssButton, cssInput, cssEntityTable, cssTab];
-  }
-
-  _handleClick(e: Event) {
-    if (e?.ctrlKey) {
-      const options = {
-        detail: "entity-table",
-        bubbles: true,
-        composed: true,
-      };
-      this.dispatchEvent(new CustomEvent("toggle-layout", options));
-    }
-  }
-
-  _handleEntityRowClick(e: any) {
-    if (e?.currentTarget?.domain === "sensor") {
-      if (!e?.ctrlKey) e.stopPropagation();
-      e?.currentTarget?.classList.toggle(
-        "expanded",
-        !e.ctrlKey ? undefined : true
-      );
-    }
+    return [
+      cssReset,
+      cssButton,
+      css`
+        table {
+          border-spacing: 0;
+          border-collapse: collapse;
+          width: 100%;
+          border: 1px solid currentColor;
+          background-color: var(--c-bg);
+        }
+        th {
+          font-weight: 600;
+          text-align: left;
+        }
+        th,
+        td {
+          padding: 0.25rem 0.5rem;
+          border: 1px solid currentColor;
+        }
+        td:nth-child(2),
+        th:nth-child(2) {
+          text-align: center;
+        }
+        tr th,
+        tr:nth-child(2n) {
+          background-color: rgba(127, 127, 127, 0.3);
+        }
+        select {
+          background-color: inherit;
+          color: inherit;
+          width: 100%;
+          border-radius: 4px;
+        }
+        option {
+          color: currentColor;
+          background-color: var(--primary-color, currentColor);
+        }
+        input[type="range"], input[type="text"] {
+          width: calc(100% - 8rem);
+          height: 0.75rem;
+        }
+        .range, .text {
+          text-align: center;
+        }
+      `,
+    ];
   }
 }
 
@@ -273,7 +211,7 @@ class ActionRenderer {
     if (!entity) return;
     let a = action || label.toLowerCase();
     return html`<button
-      class="abutton"
+      class="rnd"
       @click=${() => this.actioner?.restAction(entity, a)}
     >
       ${label}
@@ -300,7 +238,7 @@ class ActionRenderer {
   ) {
     return html`<select
       @change="${(e: Event) => {
-        const val = (<HTMLTextAreaElement>e.target)?.value;
+        let val = e.target?.value;
         this.actioner?.restAction(
           entity,
           `${action}?${opt}=${encodeURIComponent(val)}`
@@ -338,13 +276,14 @@ class ActionRenderer {
         max="${max || Math.max(10, value as number)}"
         .value="${value!}"
         @change="${(e: Event) => {
-          const val = (<HTMLTextAreaElement>e.target)?.value;
+          let val = e.target?.value;
           this.actioner?.restAction(entity, `${action}?${opt}=${val}`);
         }}"
       />
       <label>${max || 100}</label>
     </div>`;
   }
+
 
   private _textinput(
     entity: entityConfig,
@@ -355,59 +294,21 @@ class ActionRenderer {
     max: number | undefined,
     pattern: string | undefined
   ) {
-    return html`
+    return html`<div class="text">
       <input
         type="${entity.mode == 1 ? "password" : "text"}"
         name="${entity.unique_id}"
         id="${entity.unique_id}"
         minlength="${min || Math.min(0, value as number)}"
         maxlength="${max || Math.max(255, value as number)}"
-        pattern="${pattern || ""}"
+        pattern="${pattern || ''}"
         value="${value!}"
         @change="${(e: Event) => {
-          const val = (<HTMLTextAreaElement>e.target)?.value;
-          this.actioner?.restAction(
-            entity,
-            `${action}?${opt}=${encodeURIComponent(val)}`
-          );
-        }}"
-      />
-    `;
-  }
-
-  private _colorpicker(entity: entityConfig, action: string, value: any) {
-    function u16tohex(d: number) {
-      return Number(d).toString(16).padStart(2, "0");
-    }
-    function rgb_to_str(rgbhex: string) {
-      const rgb = rgbhex
-        .match(/[0-9a-f]{2}/gi)
-        ?.map((x) => parseInt(x, 16)) || [0, 0, 0];
-      return `r=${rgb[0]}&g=${rgb[1]}&b=${rgb[2]}`;
-    }
-
-    return html`<div class="colorpicker">
-      <input
-        type="color"
-        name="${entity.unique_id}"
-        id="${entity.unique_id}"
-        value="#${u16tohex(value?.r)}${u16tohex(value?.g)}${u16tohex(value?.b)}"
-        @change="${(e: Event) => {
-          const val = (<HTMLTextAreaElement>e.target)?.value;
-          this.actioner?.restAction(entity, `${action}?${rgb_to_str(val)}`);
+          let val = e.target?.value;
+          this.actioner?.restAction(entity, `${action}?${opt}=${encodeURIComponent(val)}`);
         }}"
       />
     </div>`;
-  }
-
-  render_binary_sensor() {
-    if (!this.entity) return;
-    const isOn = this.entity.state == stateOn;
-    return html`<iconify-icon
-      class="binary_sensor_${this.entity.state?.toLowerCase()}"
-      icon="mdi:checkbox-${isOn ? "marked-circle" : "blank-circle-outline"}"
-      height="24px"
-    ></iconify-icon>`;
   }
 
   render_switch() {
@@ -442,32 +343,27 @@ class ActionRenderer {
   render_light() {
     if (!this.entity) return;
     return [
-      html`<div class="entity">
-        ${this._switch(this.entity)}
-        ${this.entity.brightness
-          ? this._range(
-              this.entity,
-              "turn_on",
-              "brightness",
-              this.entity.brightness,
-              0,
-              255,
-              1
-            )
-          : ""}
-        ${this.entity.color_mode === "rgb" || this.entity.color_mode === "rgbw"
-          ? this._colorpicker(this.entity, "turn_on", this.entity?.color)
-          : ""}
-        ${this.entity.effects?.filter((v) => v != "None").length
-          ? this._select(
-              this.entity,
-              "turn_on",
-              "effect",
-              this.entity.effects || [],
-              this.entity.effect
-            )
-          : ""}
-      </div> `,
+      this._switch(this.entity),
+      this.entity.brightness
+        ? this._range(
+            this.entity,
+            "turn_on",
+            "brightness",
+            this.entity.brightness,
+            0,
+            255,
+            1
+          )
+        : "",
+      this.entity.effects?.filter((v) => v != "None").length
+        ? this._select(
+            this.entity,
+            "turn_on",
+            "effect",
+            this.entity.effects || [],
+            this.entity.effect
+          )
+        : "",
     ];
   }
 
@@ -487,7 +383,7 @@ class ActionRenderer {
 
   render_button() {
     if (!this.entity) return;
-    return html`${this._actionButton(this.entity, "PRESS", "press")}`;
+    return html`${this._actionButton(this.entity, "☐", "press ")}`;
   }
 
   render_select() {
@@ -503,18 +399,15 @@ class ActionRenderer {
 
   render_number() {
     if (!this.entity) return;
-    return html`
-      ${this._range(
-        this.entity,
-        "set",
-        "value",
-        this.entity.value,
-        this.entity.min_value,
-        this.entity.max_value,
-        this.entity.step
-      )}
-      ${this.entity.uom}
-    `;
+    return this._range(
+      this.entity,
+      "set",
+      "value",
+      this.entity.value,
+      this.entity.min_value,
+      this.entity.max_value,
+      this.entity.step
+    );
   }
 
   render_text() {
@@ -526,7 +419,7 @@ class ActionRenderer {
       this.entity.value,
       this.entity.min_length,
       this.entity.max_length,
-      this.entity.pattern
+      this.entity.pattern,
     );
   }
 
