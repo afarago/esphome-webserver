@@ -1,12 +1,12 @@
 {
-  "name": "@esphome-webserver/v2",
+  "name": "@esphome-webserver/v3",
   "scripts": {
     "start": "npm run dev",
     "dev": "vite",
     "xbuild": "vite build --emptyOutDir",
     "build": "vite build --emptyOutDir && npm run deploy",
     "serve": "vite preview",
-    "deploy": "bash -c '../../scripts/make_header.sh ../../_static/v2 server_index.h web_server INDEX_GZ'"
+    "deploy": "bash -c '../../scripts/make_header.sh ../../_static/v3 server_index.h web_server INDEX_GZ'"
   },
   "dependencies": {
     "chart.js": "^4.4.1",
