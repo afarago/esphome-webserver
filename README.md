@@ -45,7 +45,7 @@ development
 
 ```
 git clone https://github.com/esphome/esphome-webserver.git
-pnpm install
+npm install
 ```
 
 `npm run start`
