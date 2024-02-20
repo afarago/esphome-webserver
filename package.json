@@ -8,8 +8,9 @@
   "scripts": {
     "build_v1": "cd packages/v1 && npm run build",
     "build_v2": "cd packages/v2 && npm run build",
+    "build_v3": "cd packages/v3 && npm run build",
     "build_vfallback": "cd packages/vfallback && npm run build",
-    "build": "npm run build_v1 && npm run build_v2 && npm run build_vfallback"
+    "build": "npm run build_v1 && npm run build_v2 && npm run build_v3 && npm run build_vfallback"
   },
   "dependencies": {},
   "devDependencies": {}

@@ -70,7 +70,7 @@ export default defineConfig({
   build: {
     brotliSize: false,
     // cssCodeSplit: true,
-    outDir: "../_static/vfallback",
+    outDir: "../../_static/vfallback",
     polyfillModulePreload: false,
     rollupOptions: {
       output: {
